@@ -2,6 +2,10 @@
 'use strict';
 
 const EmberApp = require('ember-cli/lib/broccoli/ember-app');
+const stew = require('broccoli-stew');
+const Funnel = require('broccoli-funnel');
+const Concat = require('broccoli-concat');
+const p = require('ember-cli-preprocess-registry/preprocessors');
 
 module.exports = function(defaults) {
   let app = new EmberApp(defaults, {
@@ -21,5 +25,23 @@ module.exports = function(defaults) {
   // please specify an object with the list of modules as keys
   // along with the exports of each module as its value.
 
-  return app.toTree();
+  function addonTreeForTest(addon) {
+    const tests = new Funnel(addon.path + '/tests/', { destDir: addon.name + '/tests' });
+
+    return p.preprocessJs(tests, '/tests', addon.name, {
+      registry: app.registry,
+    });
+  }
+
+  function addonTreesForTest(app) {
+    const inRepoAddons = app.project.addonDiscovery.discoverInRepoAddons(app.project.root, app.project.pkg);
+
+    return inRepoAddons.map(addon => {
+      return new Concat(addonTreeForTest(addon), {
+        outputFile: 'assets/' + addon.name + '-tests.js'
+      });
+    })
+  }
+  // addon.addonTreesFor('tests');
+	return app.toTree(addonTreesForTest(app));
 };
